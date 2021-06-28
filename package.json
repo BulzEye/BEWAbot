@@ -1,0 +1,26 @@
+{
+  "name": "bewabot",
+  "version": "1.0.0",
+  "description": "A general purpose WhatsApp bot created by BulzEye, that can convert images to stickers, and more!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BulzEye/BEWAbot.git"
+  },
+  "keywords": [
+    "bot"
+  ],
+  "author": "BulzEye",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BulzEye/BEWAbot/issues"
+  },
+  "homepage": "https://github.com/BulzEye/BEWAbot#readme",
+  "dependencies": {
+    "@adiwajshing/baileys": "^3.5.1",
+    "gm": "^1.23.1"
+  }
+}
