@@ -4,6 +4,20 @@ const fs = require('fs');
 
 async function connectWA() {
     const conn = new WAConnection();
+
+    // code to save authorization details
+    conn.on ('open', () => {
+        // save credentials whenever updated
+        console.log (`credentials updated!`);
+        const authInfo = conn.base64EncodedAuthInfo(); // get all the auth info we need to restore this session
+        fs.writeFileSync('./auth_info.json', JSON.stringify(authInfo, null, '\t')); // save this info to a file
+    });
+    try {
+        conn.loadAuthInfo ('./auth_info.json');
+    }
+    catch (errN) {
+        console.log("No previous session found.");
+    }
     await conn.connect();
     conn.on('chat-update', async (chat) => {
         // console.log(chat);
