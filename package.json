@@ -1,6 +1,6 @@
 {
   "name": "bewabot",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A general purpose WhatsApp bot created by BulzEye, that can convert images to stickers, and more!",
   "main": "index.js",
   "scripts": {
