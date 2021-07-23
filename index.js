@@ -29,6 +29,8 @@ async function connectWA() {
                 // console.log(msg);
                 // console.log(msgType);
 
+                if(msg.key.fromMe && msg.status !== 2) return;
+
                 if(msgType === MessageType.text) {
                     // console.log(msg);
                     const msgText = msg.message.conversation;
