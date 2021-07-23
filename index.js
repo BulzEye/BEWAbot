@@ -235,7 +235,7 @@ async function connectWA() {
                                                 if(err) {console.log("ERROR: " + err);}
                                                 else {
                                                     console.log("Converted sticker to image")
-                                                    conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./stToImg.png'), MessageType.image, {quoted:msg, mimetype:Mimetype.png}).then((response) => {
+                                                    conn.sendMessage(msg.key.remoteJid, { url: './stToImg.png' }, MessageType.image, {quoted:msg, mimetype:Mimetype.png}).then((response) => {
                                                         console.log("Message sent");
                                                         fs.unlink("./stToImg.png", (err) => {
                                                             if(err) {console.log("Error in deleting image: " + err);}
