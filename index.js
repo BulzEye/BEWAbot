@@ -40,13 +40,27 @@ async function connectWA() {
                         let cmdContent = msgText.substring(msgText.indexOf(" ") + 1);
                         const actWord = "helloBot";
                         // console.log(cmd);
-                        if(cmd === actWord) {
-                            // send message
-                            console.log("Received greeting");
-                            const toSend = msg.key.remoteJid;
-                            const response = await conn.sendMessage(toSend, "Hello, World!", MessageType.text);
+                        // if(cmd === actWord) {
+                        //     // send message
+                        //     console.log("Received greeting");
+                        //     const toSend = msg.key.remoteJid;
+                        //     const response = await conn.sendMessage(toSend, "Hello, World!", MessageType.text);
+                        // }
+                        switch(cmd) {
+                            case "helloBot":
+                                console.log("Received greeting");
+                                const response = await conn.sendMessage(msg.key.remoteJid, "Hello, World!", MessageType.text);
+                                break;
+
+                            case "help":
+                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !help:* Lists all the available commands of the bot.";
+                                conn.sendMessage(msg.key.remoteJid, message, MessageType.text).then((response) => {
+                                    console.log("Sent commands list.");
+                                })   
                         }
                     }
+
+                    // a fun little part to kick a member using overused deliberate typos
                     if(msgText.toLowerCase().trim() === "gn gays") {
                         let kickMember = msg.participant;
                         conn.groupRemove(msg.key.remoteJid, [kickMember]).then((modi) => {
@@ -107,7 +121,7 @@ async function connectWA() {
                                 // });  
                                 conn.sendMessage(msg.key.remoteJid, "BEWAbot: GIF conversion not supported yet! Only regular images supported.", MessageType.text).then((response) => {
                                     console.log("Animated sticker request declined as WIP");
-                                })   
+                                });   
                             }
                             else {
                                 gm(imgStream).resize(512, 512).background("none").gravity("Center").extent(512, 512).write('sticker.webp', async (err) => {
@@ -137,16 +151,47 @@ async function connectWA() {
                 if(msgType === MessageType.extendedText) {
                     let msgText = msg.message.extendedTextMessage.text;
                     if(msgText.startsWith("!")) {
+                        // console.log("triggered");
                         const cmd = msgText.split(" ")[0].substring(1);
                         let cmdContent = msgText.substring(msgText.indexOf(" ") + 1);
                         // console.log(cmd);
                         switch(cmd) {
                             case "sticker":
-                                conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tagged sticker requests are currently not supported! Send the image again using the command in the caption.", MessageType.text).then((response) => {
-                                    console.log("Tag sticker message received, sent WIP message.");
-                                }).catch(msgSendError);
+                                // conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tagged sticker requests are currently not supported! Send the image again using the command in the caption.", MessageType.text).then((response) => {
+                                //     console.log("Tag sticker message received, sent WIP message.");
+                                // }).catch(msgSendError);
+                                // break;
+
+                                console.log("Received request for converting tagged sticker to image.")
+                                let messId = msg.message.extendedTextMessage.contextInfo.stanzaId;
+                                conn.loadMessage(msg.key.remoteJid, messId).then((stickerMsg) => {
+                                    // console.log(origSticker);
+                                    conn.downloadMediaMessage(stickerMsg, "stream").then((imgStream) => {
+                                        gm(imgStream).resize(512, 512).background("none").gravity("Center").extent(512, 512).write('sticker.webp', async (err) => {
+                                            if(err) {console.log("ERROR in converting to sticker: " + err);}
+                                            else {
+                                                console.log("Converted sticker");
+                                                // const response = await conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp});
+                                                // console.log("Message sent");
+                                                conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp}).then((response) => {
+                                                    console.log("Message sent");
+                                                    fs.unlink("./sticker.webp", (err) => {
+                                                        if(err) {console.log("Error in deleting sticker: " + err);}
+                                                    });
+                                                }).catch((err) => {
+                                                    console.log("Error in sending sticker message: " + err);
+                                                });
+                                            }
+                                        });   
+                                    }).catch((err) => {
+                                        console.log("ERROR in downloading sticker: " + err);
+                                    });
+                                }).catch((err) => {
+                                    console.log("ERROR in getting message: " + err);
+                                });
+                                
                                 break;
-                            
+                                
                             case "kiddoShi":
                                 let taggedMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
                                 if(taggedMsgType === MessageType.text) {
@@ -224,20 +269,31 @@ async function connectWA() {
                                 }
                                 break;
                             
+                            // Converting sticker to image
                             case "toImg": 
                                 let stickMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
                                 if(stickMsgType === MessageType.sticker) {
                                     console.log("Received request for converting sticker to image.")
                                     let messId = msg.message.extendedTextMessage.contextInfo.stanzaId;
                                     conn.loadMessage(msg.key.remoteJid, messId).then((origSticker) => {
+                                        console.log(origSticker);
                                         conn.downloadMediaMessage(origSticker, "stream").then((imgStream) => {
+                                            console.log("Downloaded sticker");
+                                            let fileName = "";
+                                            if(origSticker.message.stickerMessage.isAnimated) {
+                                                console.log("animated");
+                                                fileName = "stToImg.gif";
+                                            }
+                                            else {
+                                                fileName = "stToImg.png";
+                                            }
                                             gm(imgStream).write("stToImg.png", (err) => {
-                                                if(err) {console.log("ERROR: " + err);}
+                                                if(err) {console.log("ERROR in converting: " + err);}
                                                 else {
                                                     console.log("Converted sticker to image")
-                                                    conn.sendMessage(msg.key.remoteJid, { url: './stToImg.png' }, MessageType.image, {quoted:msg, mimetype:Mimetype.png}).then((response) => {
+                                                    conn.sendMessage(msg.key.remoteJid, { url: ('./' + fileName) }, MessageType.image, {quoted:msg, mimetype:Mimetype.png}).then((response) => {
                                                         console.log("Message sent");
-                                                        fs.unlink("./stToImg.png", (err) => {
+                                                        fs.unlink(fileName, (err) => {
                                                             if(err) {console.log("Error in deleting image: " + err);}
                                                         });
                                                     }).catch((err) => {
@@ -245,12 +301,18 @@ async function connectWA() {
                                                     });
                                                 }
                                             });
+                                        }).catch((err) => {
+                                            console.log("ERROR in downloading sticker: " + err);
                                         });
-                                    })
+                                    }).catch((err) => {
+                                        console.log("ERROR in getting message: " + err);
+                                    });
                                 }
                                 else {
                                     conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a sticker!", MessageType.text).then((response) => console.log("Message rejected: Non-sticker message tagged")).catch(msgSendError);
                                 }
+                                break;
+
                         }
                     }
                 }
