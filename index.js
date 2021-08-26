@@ -1,6 +1,7 @@
 const { WAConnection, MessageType, Mimetype, MessageOptions } = require('@adiwajshing/baileys');
 const gm = require('gm');
 const fs = require('fs');
+const gTTS = require("gtts")
 // const gif2webp = require ("gif2webp");
 
 async function connectWA() {
@@ -38,7 +39,7 @@ async function connectWA() {
                         // console.log("triggered");
                         const cmd = msgText.split(" ")[0].substring(1);
                         let cmdContent = msgText.substring(msgText.indexOf(" ") + 1);
-                        const actWord = "helloBot";
+                        // const actWord = "helloBot";
                         // console.log(cmd);
                         // if(cmd === actWord) {
                         //     // send message
@@ -53,14 +54,45 @@ async function connectWA() {
                                 break;
 
                             case "help":
-                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !help:* Lists all the available commands of the bot.";
+                                // WIP
+                                const commandList = [
+                                    {
+                                        name: "helloBot",
+                                        description: "Simple command to get a greeting from bot (to check if bot is working, for example)."
+                                    }
+                                ]
+                                // WIP - list of commands to be probably saved in JSON later on
+                                
+                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.\n*- !help:* Lists all the available commands of the bot.";
                                 conn.sendMessage(msg.key.remoteJid, message, MessageType.text).then((response) => {
                                     console.log("Sent commands list.");
-                                })   
+                                });
+                                break;
+                            
+                            case "tts":
+                                // console.log(cmdContent);
+                                var outFile = new gTTS(cmdContent, "en");
+                                outFile.save("./tmp/outFile.mp3", (err, result) => {
+                                    if(err) {
+                                        console.log("ERROR in converting to audio: " + err);
+                                    }
+                                    else {
+                                        console.log("Converted to TTS");
+                                        conn.sendMessage(msg.key.remoteJid, {url: "./tmp/outFile.mp3"}, MessageType.audio, {quoted:msg, mimetype: Mimetype.mp4Audio, ptt: true}).then((response) => {
+                                            console.log("Message sent");
+                                            fs.unlink("./tmp/outFile.mp3", (err) => {
+                                                if(err) {console.log("Error in deleting tts audio file: " + err);}
+                                            });
+                                        }).catch(msgSendError);
+                                    }
+                                });
+                                break;
                         }
                     }
 
                     // a fun little part to kick a member using overused deliberate typos
+                    // you saw it first: new feature related to this but allowing any word to be used as kicking criteria
+                    // COMING SOON!
                     if(msgText.toLowerCase().trim() === "gn gays") {
                         let kickMember = msg.participant;
                         conn.groupRemove(msg.key.remoteJid, [kickMember]).then((modi) => {
@@ -312,7 +344,34 @@ async function connectWA() {
                                     conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a sticker!", MessageType.text).then((response) => console.log("Message rejected: Non-sticker message tagged")).catch(msgSendError);
                                 }
                                 break;
-
+                            
+                            case "tts":
+                                let tagMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
+                                if(tagMsgType === MessageType.text) {
+                                    console.log("Received tagged TTS");
+                                    let ogMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
+                                    var outFile = new gTTS(ogMsg, "en");
+                                    outFile.save("./tmp/outFile.mp3", (err, result) => {
+                                        if(err) {
+                                            console.log("ERROR in converting to audio: " + err);
+                                        }
+                                        else {
+                                            console.log("Converted to TTS");
+                                            conn.sendMessage(msg.key.remoteJid, {url: "./tmp/outFile.mp3"}, MessageType.audio, {quoted:msg, mimetype: Mimetype.mp4Audio, ptt: true}).then((response) => {
+                                                console.log("Message sent");
+                                                fs.unlink("./tmp/outFile.mp3", (err) => {
+                                                    if(err) {console.log("Error in deleting tts audio file: " + err);}
+                                                });
+                                            }).catch(msgSendError);
+                                        }
+                                    });
+                                    break;
+                                    
+                                }
+                                else {
+                                    conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
+                                }
+                                break;
                         }
                     }
                 }

@@ -21,6 +21,7 @@
   "homepage": "https://github.com/BulzEye/BEWAbot#readme",
   "dependencies": {
     "@adiwajshing/baileys": "^3.5.1",
-    "gm": "^1.23.1"
+    "gm": "^1.23.1",
+    "gtts": "^0.2.1"
   }
 }
