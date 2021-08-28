@@ -53,7 +53,7 @@ async function connectWA() {
                                 const response = await conn.sendMessage(msg.key.remoteJid, "Hello, World!", MessageType.text);
                                 break;
 
-                            case "help":
+                            case "cmdhelp":
                                 // WIP
                                 const commandList = [
                                     {
@@ -63,7 +63,7 @@ async function connectWA() {
                                 ]
                                 // WIP - list of commands to be probably saved in JSON later on
                                 
-                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.\n*- !help:* Lists all the available commands of the bot.";
+                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.\n*- !cmdhelp:* Lists all the available commands of the bot.\n*- !vote:* Shows who one should vote for rightful CR of CSE :).";
                                 conn.sendMessage(msg.key.remoteJid, message, MessageType.text).then((response) => {
                                     console.log("Sent commands list.");
                                 });
@@ -87,6 +87,16 @@ async function connectWA() {
                                     }
                                 });
                                 break;
+                            
+                            case "vote":
+                                fs.readFile("./camp.txt", (err, data) => {
+                                    if(err) {console.log("error in opening file: " + err);}
+                                    else {
+                                        conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text, {quoted: msg}).then((res) => {
+                                            console.log("Sent campaign message.");
+                                        }).catch(msgSendError);
+                                    }
+                                });
                         }
                     }
 
