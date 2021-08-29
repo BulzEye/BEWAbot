@@ -382,6 +382,22 @@ async function connectWA() {
                                     conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
                                 }
                                 break;
+
+                            case "update":
+                                let tagMsggType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
+                                if(tagMsggType === MessageType.text) {
+                                    console.log("Received tagged TTS");
+                                    let ogMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
+                                    fs.writeFile("./camp.txt", ogMsg, () => {
+                                        console.log("File updated.");
+                                        conn.sendMessage(msg.key.remoteJid, "Updated file!", MessageType.text, {quoted:msg}).catch(msgSendError);
+                                    });
+                                    break;
+                                    
+                                }
+                                else {
+                                    conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
+                                }
                         }
                     }
                 }
