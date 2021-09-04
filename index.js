@@ -38,7 +38,7 @@ async function connectWA() {
                     if(msgText.startsWith("!")) {
                         // console.log("triggered");
                         const cmd = msgText.split(" ")[0].substring(1);
-                        let cmdContent = msgText.substring(msgText.indexOf(" ") + 1);
+                        let cmdContent = (msgText.indexOf(" ") < 0) ? "" : msgText.substring(msgText.indexOf(" ") + 1);
                         // const actWord = "helloBot";
                         // console.log(cmd);
                         // if(cmd === actWord) {
@@ -63,12 +63,21 @@ async function connectWA() {
                                 ]
                                 // WIP - list of commands to be probably saved in JSON later on
                                 
-                                let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.\n*- !cmdhelp:* Lists all the available commands of the bot.\n*- !vote:* Shows who one should vote for rightful CR of CSE :).";
-                                conn.sendMessage(msg.key.remoteJid, message, MessageType.text).then((response) => {
-                                    console.log("Sent commands list.");
+                                // let message = "*BEWAbot*\n\n_Commands:_\n*- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).\n*- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.\n*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.\n*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.\n*- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)\n*- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.\n*- !cmdhelp:* Lists all the available commands of the bot.\n*- !vote:* Shows who one should vote for rightful CR of CSE :).";
+                                // conn.sendMessage(msg.key.remoteJid, message, MessageType.text).then((response) => {
+                                //     console.log("Sent commands list.");
+                                // });
+                                
+                                fs.readFile("./txt/help.txt", (err, data) => {
+                                    if(err) {console.log("error in opening file: " + err);}
+                                    else {
+                                        conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text).then((res) => {
+                                            console.log("Sent commands list.");
+                                        }).catch(msgSendError);
+                                    }
                                 });
                                 break;
-                            
+                                
                             case "tts":
                                 // console.log(cmdContent);
                                 var outFile = new gTTS(cmdContent, "en");
@@ -89,7 +98,7 @@ async function connectWA() {
                                 break;
                             
                             case "vote":
-                                fs.readFile("./camp.txt", (err, data) => {
+                                fs.readFile("./txt/camp.txt", (err, data) => {
                                     if(err) {console.log("error in opening file: " + err);}
                                     else {
                                         conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text, {quoted: msg}).then((res) => {
@@ -97,6 +106,35 @@ async function connectWA() {
                                         }).catch(msgSendError);
                                     }
                                 });
+
+                            case "rng":
+                                // console.log("Command content: \"" + cmdContent + "\"");
+                                if(cmdContent.trim()) {
+                                    let stEnd = cmdContent.split(" ");
+                                    stEnd.push("text");
+                                    let start = Number(stEnd[0]);
+                                    let end = Number(stEnd[1]);
+                                    if((isNaN(end) && isNaN(start)) || (isNaN(start) && !isNaN(end))) {
+                                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Invalid options!", MessageType.text, {quoted: msg} ).then((res) => {
+                                            console.log("Sent invalid number message.");
+                                        }).catch(msgSendError);
+                                    }
+                                    else {
+                                        if(isNaN(end)) {
+                                            end = start;
+                                            start = 1;
+                                        }
+                                        let no = Math.floor(Math.random() * (end-start+1)) + start;
+                                        conn.sendMessage(msg.key.remoteJid, "*The random number is:*\n" + no, MessageType.text, {quoted: msg} ).then((res) => {
+                                            console.log("Sent random number.");
+                                        }).catch(msgSendError);
+                                    }
+                                }
+                                else {
+                                    conn.sendMessage(msg.key.remoteJid, "*!rng syntax:*\n\n!rng _<min number> <max number>_\n\nThis command will return a random number between _<min number>_ and _<max number>_ (both included)\nIf _<min number>_ is excluded, then it is assumed to be 1", MessageType.text, {quoted: msg} ).then((res) => {
+                                        console.log("Sent random number command help message.");
+                                    }).catch(msgSendError);
+                                }
                         }
                     }
 
