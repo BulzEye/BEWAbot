@@ -21,6 +21,18 @@ async function connectWA() {
         console.log("No previous session found.");
     }
     await conn.connect();
+
+    // initialise word for !taboo command
+    let tabooWord = "͸"
+    fs.readFile("./txt/taboowrd.txt", (err, data) => {
+        if(err) {
+            console.log("error reading taboo word file");
+        }
+        else {
+            tabooWord = data.toString().trim();
+        }
+    });
+
     conn.on('chat-update', async (chat) => {
         // console.log(chat);
         if ((chat.messages)) {  
@@ -145,13 +157,40 @@ async function connectWA() {
                                     }).catch(msgSendError);
                                 }, 500);
                                 break;
+                            
+                            case "taboo":
+                                // console.log("triggered taboo");
+                                // console.log(cmdContent);
+                                if(cmdContent.trim() === "") {
+                                    // console.log("found empty message")
+                                    let tabooReplyMsg = "";
+                                    if(tabooWord === "") {
+                                        tabooReplyMsg += "*_No Taboo word/sentence set_*\n";
+                                    }
+                                    else {
+                                        tabooReplyMsg += `*Taboo:* ${tabooWord}\n`;
+                                    }
+                                    tabooReplyMsg += "\nSet up a Taboo (word or sentence) by typing \"!taboo _taboowordorsentence_ \"";
+                                    conn.sendMessage(msg.key.remoteJid, tabooReplyMsg, MessageType.text, {quoted:msg}).then((response) => {
+                                        console.log("Sent Taboo info");
+                                    }).catch(msgSendError);
+                                }
+                                else {
+                                    tabooWord = cmdContent.trim();
+                                    fs.writeFile("./txt/taboowrd.txt", tabooWord, () => {
+                                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Taboo updated!", MessageType.text, {quoted:msg}).then((response) => {
+                                            console.log("Taboo updated");
+                                        }).catch(msgSendError);
+                                    });
+                                }
+                                break;
                         }
                     }
 
                     // a fun little part to kick a member using overused deliberate typos
                     // you saw it first: new feature related to this but allowing any word to be used as kicking criteria
                     // COMING SOON!
-                    if(msgText.toLowerCase().trim() === "gn gays") {
+                    if(tabooWord != "" && msgText.toLowerCase().trim() === /*"gn gays"*/tabooWord.toLowerCase()) {
                         let kickMember = msg.participant;
                         conn.groupRemove(msg.key.remoteJid, [kickMember]).then((modi) => {
                             console.log("Removed people.");

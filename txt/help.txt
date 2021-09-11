@@ -10,3 +10,4 @@ _Commands:_
 *- !rng:* Gives a random number. For more details type the command.
 *- !cmdhelp:* Lists all the available commands of the bot.
 *- !vote:* ~Shows who one should vote for rightful CR of CSE :)~ Voting is now complete, thank you for the support!
+*- !taboo:* Defines a Taboo (word or sentence), which, when mentioned by itself by anyone, kicks that member from the group (though it adds him back after a minute).
