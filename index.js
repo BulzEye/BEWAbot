@@ -135,6 +135,16 @@ async function connectWA() {
                                         console.log("Sent random number command help message.");
                                     }).catch(msgSendError);
                                 }
+                                break;
+
+                            case "helloBEWAbot":
+                                console.log("Received greeting from fellow bot");
+                                setTimeout(() => {
+                                    conn.sendMessage(msg.key.remoteJid, "#helloTKM-Bot", MessageType.text, {quoted:msg}).then((response) => {
+                                        console.log("Greeted fellow bot");
+                                    }).catch(msgSendError);
+                                }, 500);
+                                break;
                         }
                     }
 
@@ -436,6 +446,16 @@ async function connectWA() {
                                 else {
                                     conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
                                 }
+                                break;
+                            
+                            case "helloBEWAbot":
+                                console.log("Received greeting from fellow bot");
+                                setTimeout(() => {
+                                    conn.sendMessage(msg.key.remoteJid, "#helloTKM-Bot", MessageType.text, {quoted:msg}).then((response) => {
+                                        console.log("Greeted fellow bot");
+                                    }).catch(msgSendError);
+                                }, 500);
+                                break;
                         }
                     }
                 }
