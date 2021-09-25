@@ -32,6 +32,7 @@ async function connectWA() {
             tabooWord = data.toString().trim();
         }
     });
+    let tabooExempt = false;
 
     conn.on('chat-update', async (chat) => {
         // console.log(chat);
@@ -118,6 +119,7 @@ async function connectWA() {
                                         }).catch(msgSendError);
                                     }
                                 });
+                                break;
 
                             case "rng":
                                 // console.log("Command content: \"" + cmdContent + "\"");
@@ -161,36 +163,69 @@ async function connectWA() {
                             case "taboo":
                                 // console.log("triggered taboo");
                                 // console.log(cmdContent);
-                                if(cmdContent.trim() === "") {
-                                    // console.log("found empty message")
-                                    let tabooReplyMsg = "";
-                                    if(tabooWord === "") {
-                                        tabooReplyMsg += "*_No Taboo word/sentence set_*\n";
+                                // if(msg.key.remoteJid === "919638671317-1607864864@g.us") {
+                                    if(cmdContent.trim() === "") {
+                                        // console.log("found empty message")
+                                        let tabooReplyMsg = "";
+                                        if(tabooWord === "") {
+                                            tabooReplyMsg += "*_No Taboo word/sentence set_*\n";
+                                        }
+                                        else {
+                                            tabooReplyMsg += `*Taboo:* ${tabooWord}\n`;
+                                        }
+                                        tabooReplyMsg += "\nSet up a Taboo (word or sentence) by typing \"!taboo _taboowordorsentence_ \"";
+                                        conn.sendMessage(msg.key.remoteJid, tabooReplyMsg, MessageType.text, {quoted:msg}).then((response) => {
+                                            console.log("Sent Taboo info");
+                                        }).catch(msgSendError);
                                     }
                                     else {
-                                        tabooReplyMsg += `*Taboo:* ${tabooWord}\n`;
+                                        tabooWord = cmdContent.trim();
+                                        fs.writeFile("./txt/taboowrd.txt", tabooWord, () => {
+                                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Taboo updated!", MessageType.text, {quoted:msg}).then((response) => {
+                                                console.log("Taboo updated");
+                                            }).catch(msgSendError);
+                                        });
                                     }
-                                    tabooReplyMsg += "\nSet up a Taboo (word or sentence) by typing \"!taboo _taboowordorsentence_ \"";
-                                    conn.sendMessage(msg.key.remoteJid, tabooReplyMsg, MessageType.text, {quoted:msg}).then((response) => {
-                                        console.log("Sent Taboo info");
-                                    }).catch(msgSendError);
-                                }
-                                else {
-                                    tabooWord = cmdContent.trim();
-                                    fs.writeFile("./txt/taboowrd.txt", tabooWord, () => {
-                                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Taboo updated!", MessageType.text, {quoted:msg}).then((response) => {
-                                            console.log("Taboo updated");
-                                        }).catch(msgSendError);
-                                    });
-                                }
+                                    tabooExempt = true;
+                                    break;
+                                //}
+                            
+                            case "allcse":
+                                let members = [
+                                    '919370108838@s.whatsapp.net',
+                                    '919969529264@s.whatsapp.net',
+                                    '919667349980@s.whatsapp.net',
+                                    '919423592986@s.whatsapp.net',
+                                    '917046244503@s.whatsapp.net',
+                                    '917017600211@s.whatsapp.net',
+                                    '918872150472@s.whatsapp.net',
+                                    '918700983822@s.whatsapp.net',
+                                    '917879937800@s.whatsapp.net'
+                                  ];
+                                conn.sendMessage(
+                                    msg.key.remoteJid, 
+                                    '@919667349980 @919423592986 @919370108838 @919969529264 @918872150472 @918700983822 @917046244503 @917879937800 @917017600211',
+                                    MessageType.extendedText,
+                                    {contextInfo: {
+                                        mentionedJid: members
+                                    }}
+                                ).then((response) => {
+                                    console.log("Tagged CSE members");
+                                }).catch(msgSendError);
                                 break;
                         }
                     }
 
+                }
+                
+                // taboo code to be run on both tagged and regular msgs
+                if(msgType === MessageType.text || msgType === MessageType.extendedText) {
+                    const msgText = msg.message.conversation;
                     // a fun little part to kick a member using overused deliberate typos
                     // you saw it first: new feature related to this but allowing any word to be used as kicking criteria
                     // COMING SOON!
-                    if(tabooWord != "" && msgText.toLowerCase().trim() === /*"gn gays"*/tabooWord.toLowerCase()) {
+                    if(!tabooExempt && (msg.key.remoteJid === "919638671317-1607864864@g.us" || msg.key.remoteJid === "919667349980-1611081671@g.us" || msg.key.remoteJid === "919667349980-1613157139@g.us") && tabooWord != "" && (msgText.toLowerCase().trim() === tabooWord.toLowerCase())) {
+                        console.log("Taboo detected");
                         let kickMember = msg.participant;
                         conn.groupRemove(msg.key.remoteJid, [kickMember]).then((modi) => {
                             console.log("Removed people.");
@@ -206,6 +241,9 @@ async function connectWA() {
                         }).catch((err) => {
                             console.log("ERROR in removing member: " + err);
                         });
+                    }
+                    else if(tabooExempt) {
+                        tabooExempt = false;
                     }
                 }
 
