@@ -197,6 +197,7 @@ async function connectWA() {
                                     '919667349980@s.whatsapp.net',
                                     '919423592986@s.whatsapp.net',
                                     '917046244503@s.whatsapp.net',
+                                    '919920450432@s.whatsapp.net',
                                     '917017600211@s.whatsapp.net',
                                     '918872150472@s.whatsapp.net',
                                     '918700983822@s.whatsapp.net',
@@ -204,7 +205,7 @@ async function connectWA() {
                                   ];
                                 conn.sendMessage(
                                     msg.key.remoteJid, 
-                                    '@919667349980 @919423592986 @919370108838 @919969529264 @918872150472 @918700983822 @917046244503 @917879937800 @917017600211',
+                                    '@919667349980 @919423592986 @919370108838 @919969529264 @918872150472 @919920450432 @918700983822 @917046244503 @917879937800 @917017600211',
                                     MessageType.extendedText,
                                     {contextInfo: {
                                         mentionedJid: members
