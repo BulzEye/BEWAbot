@@ -221,7 +221,8 @@ async function connectWA() {
                 
                 // taboo code to be run on both tagged and regular msgs
                 if(msgType === MessageType.text || msgType === MessageType.extendedText) {
-                    const msgText = msg.message.conversation;
+                    const msgText = (msgType === MessageType.text) ? msg.message.conversation : msg.message.extendedTextMessage.text;
+                    // console.log(msgText);
                     // a fun little part to kick a member using overused deliberate typos
                     // you saw it first: new feature related to this but allowing any word to be used as kicking criteria
                     // COMING SOON!
