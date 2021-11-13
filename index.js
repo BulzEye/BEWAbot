@@ -7,6 +7,8 @@ const gTTS = require("gtts")
 async function connectWA() {
     const conn = new WAConnection();
 
+    conn.version = [2, 2142, 12];
+
     // code to save authorization details
     conn.on ('open', () => {
         // save credentials whenever updated
@@ -24,7 +26,7 @@ async function connectWA() {
 
     // initialise word for !taboo command
     let tabooWord = "͸"
-    fs.readFile("./txt/taboowrd.txt", (err, data) => {
+    fs.readFile("./txt/temp/taboowrd.txt", (err, data) => {
         if(err) {
             console.log("error reading taboo word file");
         }
@@ -111,7 +113,7 @@ async function connectWA() {
                                 break;
                             
                             case "vote":
-                                fs.readFile("./txt/camp.txt", (err, data) => {
+                                fs.readFile("./txt/temp/camp.txt", (err, data) => {
                                     if(err) {console.log("error in opening file: " + err);}
                                     else {
                                         conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text, {quoted: msg}).then((res) => {
@@ -180,7 +182,7 @@ async function connectWA() {
                                     }
                                     else {
                                         tabooWord = cmdContent.trim();
-                                        fs.writeFile("./txt/taboowrd.txt", tabooWord, () => {
+                                        fs.writeFile("./txt/temp/taboowrd.txt", tabooWord, () => {
                                             conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Taboo updated!", MessageType.text, {quoted:msg}).then((response) => {
                                                 console.log("Taboo updated");
                                             }).catch(msgSendError);
@@ -515,7 +517,7 @@ async function connectWA() {
                                 if(tagMsggType === MessageType.text) {
                                     console.log("Received tagged TTS");
                                     let ogMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
-                                    fs.writeFile("./camp.txt", ogMsg, () => {
+                                    fs.writeFile("./txt/temp/camp.txt", ogMsg, () => {
                                         console.log("File updated.");
                                         conn.sendMessage(msg.key.remoteJid, "Updated file!", MessageType.text, {quoted:msg}).catch(msgSendError);
                                     });
