@@ -4,9 +4,25 @@ const fs = require('fs');
 const gTTS = require("gtts");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 // const gif2webp = require ("gif2webp");
+const passport = require("passport");
+var GoogleStrategy = require("passport-google-oauth20").Strategy;
+
+const clientID = "77239763343-mifupa8vvuvg4tctblie9r5khq7m8g0t.apps.googleusercontent.com";
+const clientSecret = "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";
 
 let tabooWord = "";
 let tabooExempt = false;
+
+passport.use(new GoogleStrategy({
+    clientID: clientID,
+    clientSecret: clientSecret,
+    callbackURL: "http://localhost:8000/auth/callback"
+},
+    function (accessToken, refreshToken, profile, cb) {
+        console.log("refreshToken : ", refreshToken)
+        return cb();
+    }
+));
 
 async function connectWA() {
     const conn = new WAConnection();
@@ -296,6 +312,27 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         console.log("Tagged CSE members");
                     }).catch(msgSendError);
                     break;
+
+                case "bst":
+                    let sentences = [
+                        "Hello! Someone called the potato?",
+                        "Arayyy dhapporchand dhorrdhappas chomuchand!",
+                        "Sreyashi 🥰",
+                        "Maar khayega tu prs aunty ek baar aur bola toh",
+                        "Mereko disturb mat karo batata wada kha rhi hu",
+                        "#AlooForPresident2022",
+                        "Meko ek aur baar aloo bol aur udhti hui chappal aayegi muh pe 🙃🙃",
+                        "Jaskaran Aryan ke peeche 🌚🌚",
+                        "BatataBot mode activated! BEWAbot is now temporarily BSTbot!",
+                        "Beer piyega deer?",
+                        "Yahi hu bro",
+                        "Ye lo sev khao sab"
+                    ];
+                    conn.sendMessage(msg.key.remoteJid, "*BSTbot:* " + sentences[Math.floor(Math.random() * sentences.length)], MessageType.text, {quoted:msg}).then((response) => {
+                        console.log("BatataBot message sent");
+                    }).catch(msgSendError);
+                    break;
+
             }
         }
 
@@ -453,6 +490,10 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         conText = conText.replace(/j/g, "d");
                         conText = conText.replace(/R/g, "L");
                         conText = conText.replace(/J/g, "D");
+                        conText = conText.replace(/ch/g, "t");
+                        conText = conText.replace(/Ch/g, "T");
+                        conText = conText.replace(/ss/g, "cch");
+                        conText = conText.replace(/Ss/g, "Cch");
                         conn.sendMessage(msg.key.remoteJid, conText, MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Sent kiddo style message.");
                         }).catch(msgSendError);
@@ -617,6 +658,62 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         }).catch(msgSendError);
                     }, 500);
                     break;
+
+                case "adminify":
+                    console.log("Received request for adminification");
+                    if(msg.message.extendedTextMessage.contextInfo.mentionedJid.length > 0) {
+                        conn.groupMakeAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
+                            console.log("Made people admins.");
+                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Made the tagged people admins!", MessageType.text, {quoted:msg}).then((response) => {
+                                console.log("Sent confirmation");
+                            }).catch(msgSendError);
+                        }).catch(msgSendError);
+                    }
+                    else {
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* _Zor se bolo!_\nSay it louder!", MessageType.text, {quoted:msg}).then((response) => {
+                            console.log("Asked requester to use secondary command for adminification");
+                        }).catch(msgSendError);
+                    }
+                    break;
+                
+                case "adminify!": 
+                    console.log("Received proper request for adminification");
+                    conn.groupMakeAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
+                        console.log("Made person an admin.");
+                        conn.sendMessage(msg.key.remoteJid, `*BEWAbot:* Made ${msg.message.extendedTextMessage.contextInfo.participant} an admin!`, MessageType.text, {quoted:msg}).then((response) => {
+                            console.log("Sent confirmation");
+                        }).catch(msgSendError);
+                    }).catch(msgSendError);
+                    break;
+
+                case "unadminify":
+                    console.log("Received request for removing adminification");
+                    if(msg.message.extendedTextMessage.contextInfo.mentionedJid.length > 0) {
+                        conn.groupDemoteAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
+                            console.log("Removed people from admin.");
+                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Removed the tagged people from admins!", MessageType.text, {quoted:msg}).then((response) => {
+                                console.log("Sent confirmation");
+                            }).catch(msgSendError);
+                        }).catch(msgSendError);
+                    }
+                    else {
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* _Zor se bolo!_\nSay it louder!", MessageType.text, {quoted:msg}).then((response) => {
+                            console.log("Asked requester to use secondary command for removing adminification");
+                        }).catch(msgSendError);
+                    }
+                    break;
+                
+                case "unadminify!": 
+                    console.log("Received proper request for removing adminification");
+                    // console.log(msg.message.extendedTextMessage.contextInfo.participant);
+                    conn.groupDemoteAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
+                        console.log("Removed person from admin.");
+                        conn.sendMessage(msg.key.remoteJid, `*BEWAbot:* Removed ${msg.message.extendedTextMessage.contextInfo.participant} from admins list!`, MessageType.text, {quoted:msg}).then((response) => {
+                            console.log("Sent confirmation");
+                        }).catch(msgSendError);
+                    }).catch(msgSendError);
+                    break;
+
             }
         }
     }
