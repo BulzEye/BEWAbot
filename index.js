@@ -2,6 +2,7 @@ const { WAConnection, MessageType, Mimetype, MessageOptions } = require('@adiwaj
 const gm = require('gm');
 const fs = require('fs');
 const gTTS = require("gtts");
+const https = require("https");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 // const gif2webp = require ("gif2webp");
 
@@ -148,7 +149,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     const response = await conn.sendMessage(msg.key.remoteJid, "Hello, World!", MessageType.text);
                     break;
 
-                case "cmdhelp":
+                case "help":
                     // WIP
                     const commandList = [
                         {
@@ -168,6 +169,17 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         else {
                             conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text).then((res) => {
                                 console.log("Sent commands list.");
+                            }).catch(msgSendError);
+                        }
+                    });
+                    break;
+
+                case "helpxkg":
+                    fs.readFile("./txt/xhelp.txt", (err, data) => {
+                        if(err) {console.log("error in opening file: " + err);}
+                        else {
+                            conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text).then((res) => {
+                                console.log("Sent x commands list.");
                             }).catch(msgSendError);
                         }
                     });
@@ -317,6 +329,46 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     }).catch(msgSendError);
                     break;
 
+                case "nibbiShi":
+                    fetch("https://api.giphy.com/v1/gifs/random?api_key=LD1e7BtkjN6jH0Eg1E1VwjBN4a3X7y3W&tag=cute+love+cartoon&rating=g")
+                    .then(res => res.json())
+                    .then((giphyResponse) => {
+                        // console.log(giphyResponse);
+                        // console.log(giphyResponse.data.images.original_mp4);
+                        // https.get(giphyResponse.data.images.original_mp4.mp4, (response) => {
+                        //     console.log(response);
+                        //     response.on('data', (d) => {
+                        //         fs.writeFile("stgif.mp4", d, () => {
+                        //             console.log("Saved file");
+                        //         });
+                        //     });
+                        // })
+
+                        // fetch(giphyResponse.data.images.original_mp4.mp4)
+                        // .then(data => data.arrayBuffer())
+                        // .then(res => {
+                        //     fs.writeFile("stgif.mp4", Buffer.from(res), () => {
+                        //         console.log("Wrote file");
+                        //     });
+                        // })
+
+                        conn.sendMessage(
+                            msg.key.remoteJid, 
+                            { url: giphyResponse.data.images.original_mp4.mp4 }, // send directly from remote url!
+                            MessageType.video, 
+                            { mimetype: Mimetype.gif, quoted: msg }
+                        ).then(() => {
+                            console.log("Sent nibbi style gif");
+                        }).catch(msgSendError);
+                    })
+                    // http.get("http://api.giphy.com/v1/gifs/random?api_key=LD1e7BtkjN6jH0Eg1E1VwjBN4a3X7y3W&tag=cute+love&rating=g", (response) => {
+                    //     fs.writeFile("test.txt", response.toString(), () => {
+                    //         console.log("Wrote data to file");
+                    //     });
+                    //     console.log(response);
+                    //     console.log(response.data);
+                    // });
+                    break;
             }
         }
 

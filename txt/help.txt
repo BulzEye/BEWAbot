@@ -3,11 +3,13 @@
 _Commands:_
 *- !helloBot:* Simple command to get a greeting from bot (to check if bot is working, for example).
 *- !sticker:* Send a photo (currently, non-animated) with this in the caption, or tag a photo, to convert it into a sticker. This converts the image as is, so prior cropping may be required.
-*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.
-*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.
 *- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)
 *- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.
 *- !rng:* Gives a random number. For more details type the command.
 *- !cmdhelp:* Lists all the available commands of the bot.
-*- !vote:* ~Shows who one should vote for rightful CR of CSE :)~ Voting is now complete, thank you for the support!
-*- !taboo:* Defines a Taboo (word or sentence), which, when mentioned by itself by anyone, kicks that member from the group (though it adds him back after a minute).
+
+*_Below commands require the bot user to be an admin of a group_*
+*- !adminify:* Run this command along with an '@' tag to one or more members (in the same message as the command leaving a space), to make them admins of the group.
+*- !adminify!:* Alternate version of the above command, except that a message must be tagged (using the 'reply' option). Makes the person who has sent the tagged message, an admin.
+*- !unadminify:* Same as _!adminify_ but for removing the tagged people from the list of admins of the group
+*- !unadminify!:* Same as _!adminify!_ but for removing the person whose message is tagged, from the list of admins of the group

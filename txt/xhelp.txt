@@ -1,0 +1,10 @@
+*BEWAbot*
+
+_XKG Commands:_
+*- !kiddoShi:* Converts a tagged message to a 'kiddo' style message.
+*- !kiddoShit:* Corrupted version of 'kiddoShi' that will convert existing kiddo style parts into regular speak.
+*- !taboo:* Defines a Taboo (word or sentence), which, when mentioned by itself by anyone, kicks that member from the group (though it adds him back after a minute).
+*- !helloBEWAbot:* Command to be sent by TKMbot, that will, in turn, call (send a command to) TKMbot. _WARNING: Usage of this command when both bots are active may lead to spam in the group. Use this command wisely and with an escape plan._
+*- !allcse:* Tags all the members of CSE Kool
+*- !bst:* Summons the BatataBot!
+*- !nibbiShi:* Sends a random 'nibbi' style gif. _Disclaimer: nibbiness of gif not always guaranteed. Several tries might be needed_
