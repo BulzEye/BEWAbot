@@ -6,7 +6,7 @@ _Commands:_
 *- !toImg:* Tag a sticker (currently, non-animated) with this command to convert it into an image. (Currently, reliability is not guaranteed)
 *- !tts:* Tag a message, or insert text after this command (separated by a space after command) to generate a text-to-speech voice file.
 *- !rng:* Gives a random number. For more details type the command.
-*- !cmdhelp:* Lists all the available commands of the bot.
+*- !help:* Lists all the available commands of the bot.
 
 *_Below commands require the bot user to be an admin of a group_*
 *- !adminify:* Run this command along with an '@' tag to one or more members (in the same message as the command leaving a space), to make them admins of the group.
