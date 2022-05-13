@@ -35,58 +35,7 @@ async function connectWA() {
         console.log(err);
         let isEqual = (err === "RangeError: Maximum call stack size exceeded");
         if(err == "RangeError: Maximum call stack size exceeded") {
-            let isLoggedIntoCaptive = false;
-            // let retryLogin = true;
-            // do {
-                // if(retryLogin) {
-                    const params = new URLSearchParams();
-                    params.append("auth_user", "cse200001057");
-                    params.append("auth_pass", "9619523337");
-                    params.append("auth_voucher", "");
-                    params.append("zone", "iitiauth");
-                    params.append("redirurl", "http://captive.apple.com/");
-                    params.append("accept", "Continue");
-    
-                    console.log("Trying to log in...");
-                    // console.log(params);
-                    retryLogin = false;
-                    // debugger;
-                    // setTimeout(() => {
-                    //     debugger;
-                    //     console.log("now...");
-                    //     debugger;
-                        fetch("https://gateway1.iiti.ac.in:8003/index.php?zone=iitiauth", {
-                            method: "POST",
-                            body: params
-                        }).then(res => {
-                            return res.text();
-                        })
-                        .then(res => {
-                            // console.log("\nResponse:");
-                            // console.log(res);
-                            retryLogin = true;
-                            if(res == "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>" || res == "You are connected.<br/>You can proceed to: <a href='http://captive.apple.com/'>http://captive.apple.com/</a>") {
-                                console.log("LOGGED INTO CAPTIVE PORTAL!");
-                                isLoggedIntoCaptive = true;
-                                process.on("exit", () => {
-                                    console.log("fiexd");
-                                    require("child_process").spawn(process.argv.shift(), process.argv, {
-                                        cwd: process.cwd(),
-                                        detached: true,
-                                        stdio: "inherit"
-                                    });
-                                });
-                                process.exit();
-                            }
-                        })
-                        .catch(err => {
-                            console.log("ERROR logging into captive portal: " + err);
-                            retryLogin = true;
-                        });
-                    // }, 1000);
-                // }
-            // } while(!isLoggedIntoCaptive);
-            
+            loginCaptive();
         }
         // console.log(isEqual); 
     }
@@ -126,6 +75,61 @@ async function connectWA() {
 }
 
 connectWA().catch((err) => {console.log("Error: " + err)});
+
+function loginCaptive() {
+    let isLoggedIntoCaptive = false;
+    // let retryLogin = true;
+    // do {
+        // if(retryLogin) {
+            const params = new URLSearchParams();
+            params.append("auth_user", "cse200001057");
+            params.append("auth_pass", "9619523337");
+            params.append("auth_voucher", "");
+            params.append("zone", "iitiauth");
+            params.append("redirurl", "http://captive.apple.com/");
+            params.append("accept", "Continue");
+
+            console.log("Trying to log in...");
+            // console.log(params);
+            retryLogin = false;
+            // debugger;
+            // setTimeout(() => {
+            //     debugger;
+            //     console.log("now...");
+            //     debugger;
+                fetch("https://gateway1.iiti.ac.in:8003/index.php?zone=iitiauth", {
+                    method: "POST",
+                    body: params
+                }).then(res => {
+                    return res.text();
+                })
+                .then(res => {
+                    // console.log("\nResponse:");
+                    // console.log(res);
+                    retryLogin = true;
+                    if(res == "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>" || res == "You are connected.<br/>You can proceed to: <a href='http://captive.apple.com/'>http://captive.apple.com/</a>") {
+                        console.log("LOGGED INTO CAPTIVE PORTAL!");
+                        isLoggedIntoCaptive = true;
+                        process.on("exit", () => {
+                            console.log("fiexd");
+                            require("child_process").spawn(process.argv.shift(), process.argv, {
+                                cwd: process.cwd(),
+                                detached: true,
+                                stdio: "inherit"
+                            });
+                        });
+                        process.exit();
+                    }
+                })
+                .catch(err => {
+                    console.log("ERROR logging into captive portal: " + err);
+                    retryLogin = true;
+                });
+            // }, 1000);
+        // }
+    // } while(!isLoggedIntoCaptive);
+            
+}
 
 async function checkMessageForCommand(conn, msg, msgType) {
     if(msgType === MessageType.text) {
@@ -368,6 +372,26 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     //     console.log(response);
                     //     console.log(response.data);
                     // });
+                    break;
+                
+                case "everyone":
+                    conn.groupMetadata(msg.key.remoteJid)
+                    .then((data) => {
+                        console.log(data);
+                        let stringPart = data.participants.map((particip) => (`@${particip.id.substring(0, particip.id.indexOf('@'))}`)).join(" ");
+                        console.log(stringPart);
+                        console.log(data.participants.map((particip) => particip.jid));
+                        conn.sendMessage(
+                            msg.key.remoteJid, 
+                            stringPart,
+                            MessageType.extendedText,
+                            {contextInfo: {
+                                mentionedJid: data.participants.map((particip) => {return particip.jid})
+                            }}
+                        ).then((response) => {
+                            console.log("Tagged all group members");
+                        }).catch(msgSendError);
+                    });
                     break;
             }
         }
