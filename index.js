@@ -761,6 +761,28 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     }).catch(msgSendError);
                     break;
 
+                case "timeout":
+                    let timeOut = cmdContent.trim().substring(0, cmdContent.indexOf(" "));
+                    console.log(timeOut);
+                    let membersKick = msg.message.extendedTextMessage.contextInfo.mentionedJid;
+                    console.log(membersKick);
+                    conn.groupParticipantsUpdate(msg.key.remoteJid, membersKick, "remove").then((modi) => {
+                    // conn.groupRemove(msg.key.remoteJid, membersKick).then((modi) => {
+                        console.log("Removed person.");
+                        console.log("Data received: " + modi);
+                        setTimeout(() => {
+                            conn.groupParticipantsUpdate(msg.key.remoteJid, membersKick, "add").then((modi) => {
+                            // conn.groupAdd(msg.key.remoteJid, membersKick).then((modi) => {
+                                console.log("Added people back.");
+                                console.log("Data received: " + modi);
+                            }).catch((err) => {
+                                console.log("ERROR in adding member: " + err);
+                            });
+                        }, timeOut*60000);
+                    }).catch((err) => {
+                        console.log("ERROR in removing member: " + err);
+                    });  
+
             }
         }
     }
