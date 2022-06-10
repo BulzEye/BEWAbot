@@ -45,7 +45,7 @@ async function connectToWhatsApp () {
 		// implement to handle retries
 		getMessage: async key => {
 			return {
-				conversation: 'hello'
+				conversation: 'bot message sync error'
 			}
 		}
     });
