@@ -178,7 +178,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     });
                     break;
 
-                case "helpxkg":
+                case "helpx":
                     fs.readFile("./txt/xhelp.txt", (err, data) => {
                         if(err) {console.log("error in opening file: " + err);}
                         else {
@@ -392,6 +392,13 @@ async function checkMessageForCommand(conn, msg, msgType) {
                             console.log("Tagged all group members");
                         }).catch(msgSendError);
                     });
+                    break;
+
+                case "timeout":
+                    console.log("Received timeout help");
+                    conn.sendMessage(msg.key.remoteJid, "*Format:* _!timeout <no. of minutes the timeout should last> <tags of members to kick>_", MessageType.text, {quoted:msg}).then((response) => {
+                        console.log("Sent help list");
+                    }).catch(msgSendError);
                     break;
             }
         }
@@ -773,6 +780,27 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         }).catch(msgSendError);
                     }).catch(msgSendError);
                     break;
+
+                case "timeout":
+                    let timeOut = cmdContent.trim().substring(0, cmdContent.indexOf(" "));
+                    console.log(timeOut);
+                    let membersKick = msg.message.extendedTextMessage.contextInfo.mentionedJid;
+                    console.log(membersKick);
+                    conn.groupRemove(msg.key.remoteJid, membersKick).then((modi) => {
+                        console.log("Removed person.");
+                        console.log("Data received: " + modi);
+                        setTimeout(() => {
+                            conn.groupAdd(msg.key.remoteJid, membersKick).then((modi) => {
+                                console.log("Added people back.");
+                                console.log("Data received: " + modi);
+                            }).catch((err) => {
+                                console.log("ERROR in adding member: " + err);
+                            });
+                        }, timeOut*60000);
+                    }).catch((err) => {
+                        console.log("ERROR in removing member: " + err);
+                    });  
+
 
             }
         }
