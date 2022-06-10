@@ -1,4 +1,6 @@
 /node_modules
 /auth_info.json
+/auth_info_multi.json
+/baileys_store_multi.json
 /tmp
 /txt/temp/*

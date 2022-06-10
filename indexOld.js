@@ -1,70 +1,44 @@
-// multi-device code
-const makeWASocket = require('@adiwajshing/baileys').default;
-const { AnyMessageContent, AuthenticationState, BufferJSON, delay, DisconnectReason, downloadMediaMessage, downloadContentFromMessage, fetchLatestBaileysVersion, makeInMemoryStore, useSingleFileAuthState, MessageType, MessageOptions, Mimetype, WASocket, initInMemoryKeyStore } = require('@adiwajshing/baileys');
-const fs = require("fs");
-const P = require("pino");
-const pretty = require('pino-pretty');
-const { Boom } = require('@hapi/boom');
-
+const { WAConnection, MessageType, Mimetype, MessageOptions } = require('@adiwajshing/baileys');
 const gm = require('gm');
+const fs = require('fs');
 const gTTS = require("gtts");
 const https = require("https");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+// const gif2webp = require ("gif2webp");
 
 let tabooWord = "";
 let tabooExempt = false;
 
-const store = makeInMemoryStore({ logger: P().child({ level: 'debug', stream: 'store' }) });
-store.readFromFile('./baileys_store_multi.json');
+async function connectWA() {
+    const conn = new WAConnection();
 
-// save every 10s
-setInterval(() => {
-	store.writeToFile('./baileys_store_multi.json')
-}, 10_000);
+    conn.version = [2, 2142, 12];
 
-const { state, saveState } = useSingleFileAuthState('./auth_info_multi.json');
-
-async function connectToWhatsApp () {
-    
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-	console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
-    
-    const sock = makeWASocket({
-        // can provide additional config here
-        logger: P({
-            transport: {
-                target: 'pino-pretty',
-                options: {
-                    translateTime: "SYS:standard"
-                }
-            },
-        }),
-
-        printQRInTerminal: true,
-        auth: state,
-		// implement to handle retries
-		getMessage: async key => {
-			return {
-				conversation: 'bot message sync error'
-			}
-		}
+    // code to save authorization details
+    conn.on ('open', () => {
+        // save credentials whenever updated
+        console.log (`credentials updated!`);
+        const authInfo = conn.base64EncodedAuthInfo(); // get all the auth info we need to restore this session
+        fs.writeFileSync('./auth_info.json', JSON.stringify(authInfo, null, '\t')); // save this info to a file
     });
-
-    store.bind(sock.ev);
-
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update
-        if(connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut
-            console.log('connection closed due to ', lastDisconnect.error, ', reconnecting ', shouldReconnect)
-            // reconnect if not logged out
-            if(shouldReconnect) {
-                connectToWhatsApp()
-            }
-        } else if(connection === 'open') {
-            console.log('opened connection')
+    try {
+        conn.loadAuthInfo ('./auth_info.json');
+    }
+    catch (errN) {
+        console.log("No previous session found.");
+    }
+    try {
+        conn.connectOptions.maxRetries = 5;
+        await conn.connect();
+    }
+    catch(err) {
+        console.log(err);
+        let isEqual = (err === "RangeError: Maximum call stack size exceeded");
+        if(err == "RangeError: Maximum call stack size exceeded") {
+            loginCaptive();
         }
-    });
+        // console.log(isEqual); 
+    }
 
     // initialise word for !taboo command
     tabooWord = "͸"
@@ -78,36 +52,87 @@ async function connectToWhatsApp () {
     });
     tabooExempt = false;
 
-    sock.ev.on('messages.upsert', m => {
-        // console.log(JSON.stringify(m, undefined, 2));
+    conn.on('chat-update', async (chat) => {
+        // console.log(chat);
+        if ((chat.messages)) {  
+            try {
+                const msg = chat.messages.all()[0];
+                const msgType = Object.keys(msg.message)[0];
+                // console.log(msg);
+                // console.log(msgType);
 
-        const msg = m.messages[0];
-        // console.log(msg);
-        const msgType = Object.keys(msg.message)[0];
-        // console.log(msgType);
+                if(msg.key.fromMe && msg.status !== 2) return;
 
-        if(msg.key.fromMe && msg.status !== 2) return;
-
-        if(/*!msg.key.fromMe &&*/ m.type === 'notify') {
-            checkMessageForCommand(sock, msg, msgType);
+                checkMessageForCommand(conn, msg, msgType);
+                
+            }
+            catch(err) {
+                console.log("ERROR: " + err);
+            }
         }
-
-        // console.log('replying to', m.messages[0].key.remoteJid)
-        // await sock.sendMessage(m.messages[0].key.remoteJid, { text: 'Hello there!' })
     });
-
-
-    // listen for when the auth credentials is updated
-	sock.ev.on('creds.update', saveState);
+    console.log("done");
 }
 
-// run in main file
-connectToWhatsApp().catch((err) => {console.log("ERROR in connecting: " + err);});
+connectWA().catch((err) => {console.log("Error: " + err)});
 
+function loginCaptive() {
+    let isLoggedIntoCaptive = false;
+    // let retryLogin = true;
+    // do {
+        // if(retryLogin) {
+            const params = new URLSearchParams();
+            params.append("auth_user", "cse200001057");
+            params.append("auth_pass", "9619523337");
+            params.append("auth_voucher", "");
+            params.append("zone", "iitiauth");
+            params.append("redirurl", "http://captive.apple.com/");
+            params.append("accept", "Continue");
 
+            console.log("Trying to log in...");
+            // console.log(params);
+            retryLogin = false;
+            // debugger;
+            // setTimeout(() => {
+            //     debugger;
+            //     console.log("now...");
+            //     debugger;
+                fetch("https://gateway1.iiti.ac.in:8003/index.php?zone=iitiauth", {
+                    method: "POST",
+                    body: params
+                }).then(res => {
+                    return res.text();
+                })
+                .then(res => {
+                    // console.log("\nResponse:");
+                    // console.log(res);
+                    retryLogin = true;
+                    if(res == "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>" || res == "You are connected.<br/>You can proceed to: <a href='http://captive.apple.com/'>http://captive.apple.com/</a>") {
+                        console.log("LOGGED INTO CAPTIVE PORTAL!");
+                        isLoggedIntoCaptive = true;
+                        process.on("exit", () => {
+                            console.log("fiexd");
+                            require("child_process").spawn(process.argv.shift(), process.argv, {
+                                cwd: process.cwd(),
+                                detached: true,
+                                stdio: "inherit"
+                            });
+                        });
+                        process.exit();
+                    }
+                })
+                .catch(err => {
+                    console.log("ERROR logging into captive portal: " + err);
+                    retryLogin = true;
+                });
+            // }, 1000);
+        // }
+    // } while(!isLoggedIntoCaptive);
+            
+}
 
 async function checkMessageForCommand(conn, msg, msgType) {
-    if(msgType === "conversation") {
+    if(msgType === MessageType.text) {
         // console.log(msg);
         const msgText = msg.message.conversation;
         if(msgText.startsWith("!")) {
@@ -125,7 +150,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
             switch(cmd) {
                 case "helloBot":
                     console.log("Received greeting");
-                    const response = await conn.sendMessage(msg.key.remoteJid, { text: "Hello, World!" });
+                    const response = await conn.sendMessage(msg.key.remoteJid, "Hello, World!", MessageType.text);
                     break;
 
                 case "help":
@@ -146,7 +171,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     fs.readFile("./txt/help.txt", (err, data) => {
                         if(err) {console.log("error in opening file: " + err);}
                         else {
-                            conn.sendMessage(msg.key.remoteJid, { text: data.toString() }).then((res) => {
+                            conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text).then((res) => {
                                 console.log("Sent commands list.");
                             }).catch(msgSendError);
                         }
@@ -157,7 +182,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     fs.readFile("./txt/xhelp.txt", (err, data) => {
                         if(err) {console.log("error in opening file: " + err);}
                         else {
-                            conn.sendMessage(msg.key.remoteJid, { text: data.toString()}).then((res) => {
+                            conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text).then((res) => {
                                 console.log("Sent x commands list.");
                             }).catch(msgSendError);
                         }
@@ -173,7 +198,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         }
                         else {
                             console.log("Converted to TTS");
-                            conn.sendMessage(msg.key.remoteJid, { audio: {url: "./tmp/outFile.mp3"}, mimetype: "audio/mp4"}, {quoted:msg, ptt: true}).then((response) => {
+                            conn.sendMessage(msg.key.remoteJid, {url: "./tmp/outFile.mp3"}, MessageType.audio, {quoted:msg, mimetype: Mimetype.mp4Audio, ptt: true}).then((response) => {
                                 console.log("Message sent");
                                 fs.unlink("./tmp/outFile.mp3", (err) => {
                                     if(err) {console.log("Error in deleting tts audio file: " + err);}
@@ -187,7 +212,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     fs.readFile("./txt/temp/camp.txt", (err, data) => {
                         if(err) {console.log("error in opening file: " + err);}
                         else {
-                            conn.sendMessage(msg.key.remoteJid, { text: data.toString()}, {quoted: msg}).then((res) => {
+                            conn.sendMessage(msg.key.remoteJid, data.toString(), MessageType.text, {quoted: msg}).then((res) => {
                                 console.log("Sent campaign message.");
                             }).catch(msgSendError);
                         }
@@ -202,7 +227,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         let start = Number(stEnd[0]);
                         let end = Number(stEnd[1]);
                         if((isNaN(end) && isNaN(start)) || (isNaN(start) && !isNaN(end))) {
-                            conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* Invalid options!"}, {quoted: msg} ).then((res) => {
+                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Invalid options!", MessageType.text, {quoted: msg} ).then((res) => {
                                 console.log("Sent invalid number message.");
                             }).catch(msgSendError);
                         }
@@ -212,13 +237,13 @@ async function checkMessageForCommand(conn, msg, msgType) {
                                 start = 1;
                             }
                             let no = Math.floor(Math.random() * (end-start+1)) + start;
-                            conn.sendMessage(msg.key.remoteJid, { text: "*The random number is:*\n" + no}, {quoted: msg} ).then((res) => {
+                            conn.sendMessage(msg.key.remoteJid, "*The random number is:*\n" + no, MessageType.text, {quoted: msg} ).then((res) => {
                                 console.log("Sent random number.");
                             }).catch(msgSendError);
                         }
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, {text: "*!rng syntax:*\n\n!rng _<min number> <max number>_\n\nThis command will return a random number between _<min number>_ and _<max number>_ (both included)\nIf _<min number>_ is excluded, then it is assumed to be 1"}, {quoted: msg} ).then((res) => {
+                        conn.sendMessage(msg.key.remoteJid, "*!rng syntax:*\n\n!rng _<min number> <max number>_\n\nThis command will return a random number between _<min number>_ and _<max number>_ (both included)\nIf _<min number>_ is excluded, then it is assumed to be 1", MessageType.text, {quoted: msg} ).then((res) => {
                             console.log("Sent random number command help message.");
                         }).catch(msgSendError);
                     }
@@ -227,7 +252,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 case "helloBEWAbot":
                     console.log("Received greeting from fellow bot");
                     setTimeout(() => {
-                        conn.sendMessage(msg.key.remoteJid, {text: "#helloTKM-Bot"}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, "#helloTKM-Bot", MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Greeted fellow bot");
                         }).catch(msgSendError);
                     }, 500);
@@ -247,14 +272,14 @@ async function checkMessageForCommand(conn, msg, msgType) {
                                 tabooReplyMsg += `*Taboo:* ${tabooWord}\n`;
                             }
                             tabooReplyMsg += "\nSet up a Taboo (word or sentence) by typing \"!taboo _taboowordorsentence_ \"";
-                            conn.sendMessage(msg.key.remoteJid, {text: tabooReplyMsg}, {quoted:msg}).then((response) => {
+                            conn.sendMessage(msg.key.remoteJid, tabooReplyMsg, MessageType.text, {quoted:msg}).then((response) => {
                                 console.log("Sent Taboo info");
                             }).catch(msgSendError);
                         }
                         else {
                             tabooWord = cmdContent.trim();
                             fs.writeFile("./txt/temp/taboowrd.txt", tabooWord, () => {
-                                conn.sendMessage(msg.key.remoteJid, {text: "*BEWAbot:* Taboo updated!"}, {quoted:msg}).then((response) => {
+                                conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Taboo updated!", MessageType.text, {quoted:msg}).then((response) => {
                                     console.log("Taboo updated");
                                 }).catch(msgSendError);
                             });
@@ -278,10 +303,11 @@ async function checkMessageForCommand(conn, msg, msgType) {
                       ];
                     conn.sendMessage(
                         msg.key.remoteJid, 
-                        {
-                            text: '@919667349980 @919423592986 @919370108838 @919969529264 @918872150472 @919920450432 @918700983822 @917046244503 @917879937800 @917017600211',
-                            mentions: members
-                        }
+                        '@919667349980 @919423592986 @919370108838 @919969529264 @918872150472 @919920450432 @918700983822 @917046244503 @917879937800 @917017600211',
+                        MessageType.extendedText,
+                        {contextInfo: {
+                            mentionedJid: members
+                        }}
                     ).then((response) => {
                         console.log("Tagged CSE members");
                     }).catch(msgSendError);
@@ -302,13 +328,12 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         "Yahi hu bro",
                         "Ye lo sev khao sab"
                     ];
-                    conn.sendMessage(msg.key.remoteJid, { text: "*BSTbot:* " + sentences[Math.floor(Math.random() * sentences.length)]}, {quoted:msg}).then((response) => {
+                    conn.sendMessage(msg.key.remoteJid, "*BSTbot:* " + sentences[Math.floor(Math.random() * sentences.length)], MessageType.text, {quoted:msg}).then((response) => {
                         console.log("BatataBot message sent");
                     }).catch(msgSendError);
                     break;
 
                 case "nibbiShi":
-                    console.log("received nibbi style request");
                     fetch("https://api.giphy.com/v1/gifs/random?api_key=LD1e7BtkjN6jH0Eg1E1VwjBN4a3X7y3W&tag=cute+love+cartoon&rating=g")
                     .then(res => res.json())
                     .then((giphyResponse) => {
@@ -333,8 +358,9 @@ async function checkMessageForCommand(conn, msg, msgType) {
 
                         conn.sendMessage(
                             msg.key.remoteJid, 
-                            { video: { url: giphyResponse.data.images.original_mp4.mp4 }, gifPlayback: true }, // send directly from remote url!
-                            { quoted: msg }
+                            { url: giphyResponse.data.images.original_mp4.mp4 }, // send directly from remote url!
+                            MessageType.video, 
+                            { mimetype: Mimetype.gif, quoted: msg }
                         ).then(() => {
                             console.log("Sent nibbi style gif");
                         }).catch(msgSendError);
@@ -354,10 +380,14 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         console.log(data);
                         let stringPart = data.participants.map((particip) => (`@${particip.id.substring(0, particip.id.indexOf('@'))}`)).join(" ");
                         console.log(stringPart);
-                        console.log(data.participants.map((particip) => particip.id));
+                        console.log(data.participants.map((particip) => particip.jid));
                         conn.sendMessage(
                             msg.key.remoteJid, 
-                            { text: stringPart, mentions: data.participants.map((particip) => {return particip.id})}
+                            stringPart,
+                            MessageType.extendedText,
+                            {contextInfo: {
+                                mentionedJid: data.participants.map((particip) => {return particip.jid})
+                            }}
                         ).then((response) => {
                             console.log("Tagged all group members");
                         }).catch(msgSendError);
@@ -366,7 +396,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
 
                 case "timeout":
                     console.log("Received timeout help");
-                    conn.sendMessage(msg.key.remoteJid, { text: "*Format:* _!timeout <no. of minutes the timeout should last> <tags of members to kick>_"}, {quoted:msg}).then((response) => {
+                    conn.sendMessage(msg.key.remoteJid, "*Format:* _!timeout <no. of minutes the timeout should last> <tags of members to kick>_", MessageType.text, {quoted:msg}).then((response) => {
                         console.log("Sent help list");
                     }).catch(msgSendError);
                     break;
@@ -376,21 +406,20 @@ async function checkMessageForCommand(conn, msg, msgType) {
     }
     
     // taboo code to be run on both tagged and regular msgs
-    if(msgType === "conversation" || msgType === "extendedTextMessage") {
-        const msgText = (msgType === "conversation") ? msg.message.conversation : msg.message.extendedTextMessage.text;
+    if(msgType === MessageType.text || msgType === MessageType.extendedText) {
+        const msgText = (msgType === MessageType.text) ? msg.message.conversation : msg.message.extendedTextMessage.text;
         // console.log(msgText);
         // a fun little part to kick a member using overused deliberate typos
         // you saw it first: new feature related to this but allowing any word to be used as kicking criteria
         // COMING SOON!
-        if(!tabooExempt && (msg.key.remoteJid === "919638671317-1607864864@g.us" || msg.key.remoteJid === "919667349980-1611081671@g.us" || msg.key.remoteJid === "919667349980-1613157139@g.us" || msg.key.remoteJid === '120363022774827453@g.us') && tabooWord != "" && (msgText.toLowerCase().trim() === tabooWord.toLowerCase())) {
+        if(!tabooExempt && (msg.key.remoteJid === "919638671317-1607864864@g.us" || msg.key.remoteJid === "919667349980-1611081671@g.us" || msg.key.remoteJid === "919667349980-1613157139@g.us") && tabooWord != "" && (msgText.toLowerCase().trim() === tabooWord.toLowerCase())) {
             console.log("Taboo detected");
             let kickMember = msg.participant;
-            conn.groupParticipantsUpdate(msg.key.remoteJid, [kickMember], "remove").then((modi) => {
+            conn.groupRemove(msg.key.remoteJid, [kickMember]).then((modi) => {
                 console.log("Removed people.");
                 console.log("Data received: " + modi);
                 setTimeout(() => {
-                    conn.groupParticipantsUpdate(msg.key.remoteJid, [kickMember], "add").then((modi) => {
-                    // conn.groupAdd(msg.key.remoteJid, [kickMember]).then((modi) => {
+                    conn.groupAdd(msg.key.remoteJid, [kickMember]).then((modi) => {
                         console.log("Added people back.");
                         console.log("Data received: " + modi);
                     }).catch((err) => {
@@ -407,16 +436,16 @@ async function checkMessageForCommand(conn, msg, msgType) {
     }
 
     // detect sticker messages
-    if(msgType === "imageMessage") {
+    if(msgType === MessageType.image) {
         // console.log(msg);
         let gifTrue = false;
-        if(msg.message.imageMessage.mimetype === "video/gif") {
+        if(msg.message.imageMessage.mimetype === Mimetype.gif) {
             gifTrue = true;
         }
         let stickerCommand = "!sticker"
         if(msg.message.imageMessage.caption.startsWith(stickerCommand)) {
             console.log("Sticker request received.");
-            downloadMediaMessage(msg, "stream", {}, { reuploadRequest: conn.updateMediaMessage}).then((imgStream) => {
+            conn.downloadMediaMessage(msg, "stream").then((imgStream) => {
                 if(gifTrue) {
                     // gm(imgStream).resize(512, 512).background("none").gravity("Center").extent(512, 512).write('sticker.gif', async (err) => {
                     //     if(err) {console.log("ERROR: " + err);}
@@ -445,7 +474,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     //         });
                     //     }
                     // });  
-                    conn.sendMessage(msg.key.remoteJid, { text: "BEWAbot: GIF conversion not supported yet! Only regular images supported."}).then((response) => {
+                    conn.sendMessage(msg.key.remoteJid, "BEWAbot: GIF conversion not supported yet! Only regular images supported.", MessageType.text).then((response) => {
                         console.log("Animated sticker request declined as WIP");
                     });   
                 }
@@ -456,7 +485,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                             console.log("Converted sticker");
                             // const response = await conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp});
                             // console.log("Message sent");
-                            conn.sendMessage(msg.key.remoteJid, { sticker: fs.readFileSync('./sticker.webp')}, {quoted:msg}).then((response) => {
+                            conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp}).then((response) => {
                                 console.log("Message sent");
                                 fs.unlink("./sticker.webp", (err) => {
                                     if(err) {console.log("Error in deleting sticker: " + err);}
@@ -474,7 +503,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
     }
 
     // Reply message detector 
-    if(msgType === "extendedTextMessage") {
+    if(msgType === MessageType.extendedText) {
         let msgText = msg.message.extendedTextMessage.text;
         if(msgText.startsWith("!")) {
             // console.log("triggered");
@@ -490,19 +519,16 @@ async function checkMessageForCommand(conn, msg, msgType) {
 
                     console.log("Received request for converting tagged image to sticker.")
                     let messId = msg.message.extendedTextMessage.contextInfo.stanzaId;
-                    let ogMedia = msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
-                    // conn.loadMessageFromWA(msg.key.remoteJid, messId).then((stickerMsg) => {
-                    
+                    conn.loadMessage(msg.key.remoteJid, messId).then((stickerMsg) => {
                         // console.log(origSticker);
-                        downloadContentFromMessage({mediaKey: ogMedia.mediaKey, directPath: ogMedia.directPath, url: ogMedia.url}, "image").then((imgStream) => {
-                        // downloadMediaMessage(stickerMsg, "stream", {}, { reuploadRequest: conn.updateMediaMessage}).then((imgStream) => {
+                        conn.downloadMediaMessage(stickerMsg, "stream").then((imgStream) => {
                             gm(imgStream).resize(512, 512).background("none").gravity("Center").extent(512, 512).write('sticker.webp', async (err) => {
                                 if(err) {console.log("ERROR in converting to sticker: " + err);}
                                 else {
                                     console.log("Converted sticker");
                                     // const response = await conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp});
                                     // console.log("Message sent");
-                                    conn.sendMessage(msg.key.remoteJid, { sticker: fs.readFileSync('./sticker.webp')}, {quoted:msg}).then((response) => {
+                                    conn.sendMessage(msg.key.remoteJid, fs.readFileSync('./sticker.webp'), MessageType.sticker, {quoted:msg, mimetype:Mimetype.webp}).then((response) => {
                                         console.log("Message sent");
                                         fs.unlink("./sticker.webp", (err) => {
                                             if(err) {console.log("Error in deleting sticker: " + err);}
@@ -515,15 +541,15 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         }).catch((err) => {
                             console.log("ERROR in downloading sticker: " + err);
                         });
-                    // }).catch((err) => {
-                    //     console.log("ERROR in getting message: " + err);
-                    // });
+                    }).catch((err) => {
+                        console.log("ERROR in getting message: " + err);
+                    });
                     
                     break;
                     
                 case "kiddoShi":
                     let taggedMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
-                    if(taggedMsgType === "conversation") {
+                    if(taggedMsgType === MessageType.text) {
                         console.log("Received kiddo conversion request");
                         let conText = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
                         // console.log(conText);
@@ -535,18 +561,18 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         conText = conText.replace(/Ch/g, "T");
                         conText = conText.replace(/ss/g, "cch");
                         conText = conText.replace(/Ss/g, "Cch");
-                        conn.sendMessage(msg.key.remoteJid, { text: conText}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, conText, MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Sent kiddo style message.");
                         }).catch(msgSendError);
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* Tag a text message!"}).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
                     }
                     break;
 
                 case "kiddoShit":
                     let taggedMsgType1 = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
-                    if(taggedMsgType1 === "conversation") {
+                    if(taggedMsgType1 === MessageType.text) {
                         console.log("Received kiddo conversion request");
                         let conText = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
                         // console.log(conText);
@@ -593,40 +619,38 @@ async function checkMessageForCommand(conn, msg, msgType) {
                             arText.push(chNew);
                         }
                         let strText = arText.join('');
-                        conn.sendMessage(msg.key.remoteJid, { text: strText}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, strText, MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Sent dual kiddo style message.");
                         }).catch(msgSendError);
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* Tag a text message!"}).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
                     }
                     break;
                 
                 // Converting sticker to image
                 case "toImg": 
                     let stickMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
-                    if(stickMsgType === "stickerMessage") {
+                    if(stickMsgType === MessageType.sticker) {
                         console.log("Received request for converting sticker to image.")
                         let messId = msg.message.extendedTextMessage.contextInfo.stanzaId;
-                        let ogMedia = msg.message.extendedTextMessage.contextInfo.quotedMessage.stickerMessage;
-                        // conn.loadMessage(msg.key.remoteJid, messId).then((origSticker) => {
-                        //     console.log(origSticker);
-                            // conn.downloadMediaMessage(origSticker, "stream").then((imgStream) => {
-                            downloadContentFromMessage({mediaKey: ogMedia.mediaKey, directPath: ogMedia.directPath, url: ogMedia.url}, "sticker").then((imgStream) => {
+                        conn.loadMessage(msg.key.remoteJid, messId).then((origSticker) => {
+                            console.log(origSticker);
+                            conn.downloadMediaMessage(origSticker, "stream").then((imgStream) => {
                                 console.log("Downloaded sticker");
                                 let fileName = "";
-                                if(ogMedia.isAnimated) {
+                                if(origSticker.message.stickerMessage.isAnimated) {
                                     console.log("animated");
                                     fileName = "stToImg.gif";
                                 }
                                 else {
                                     fileName = "stToImg.png";
                                 }
-                                gm(imgStream).write(fileName, (err) => {
+                                gm(imgStream).write("stToImg.png", (err) => {
                                     if(err) {console.log("ERROR in converting: " + err);}
                                     else {
                                         console.log("Converted sticker to image")
-                                        conn.sendMessage(msg.key.remoteJid, { image: { url: ('./' + fileName) }}, {quoted:msg}).then((response) => {
+                                        conn.sendMessage(msg.key.remoteJid, { url: ('./' + fileName) }, MessageType.image, {quoted:msg, mimetype:Mimetype.png}).then((response) => {
                                             console.log("Message sent");
                                             fs.unlink(fileName, (err) => {
                                                 if(err) {console.log("Error in deleting image: " + err);}
@@ -639,9 +663,9 @@ async function checkMessageForCommand(conn, msg, msgType) {
                             }).catch((err) => {
                                 console.log("ERROR in downloading sticker: " + err);
                             });
-                        // }).catch((err) => {
-                        //     console.log("ERROR in getting message: " + err);
-                        // });
+                        }).catch((err) => {
+                            console.log("ERROR in getting message: " + err);
+                        });
                     }
                     else {
                         conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a sticker!", MessageType.text).then((response) => console.log("Message rejected: Non-sticker message tagged")).catch(msgSendError);
@@ -650,7 +674,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 
                 case "tts":
                     let tagMsgType = Object.keys(msg.message.extendedTextMessage.contextInfo.quotedMessage)[0];
-                    if(tagMsgType === "conversation") {
+                    if(tagMsgType === MessageType.text) {
                         console.log("Received tagged TTS");
                         let ogMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
                         var outFile = new gTTS(ogMsg, "en");
@@ -660,7 +684,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                             }
                             else {
                                 console.log("Converted to TTS");
-                                conn.sendMessage(msg.key.remoteJid, { audio: {url: "./tmp/outFile.mp3"}, mimetype: "audio/mp4"}, {quoted:msg, ptt: true}).then((response) => {
+                                conn.sendMessage(msg.key.remoteJid, {url: "./tmp/outFile.mp3"}, MessageType.audio, {quoted:msg, mimetype: Mimetype.mp4Audio, ptt: true}).then((response) => {
                                     console.log("Message sent");
                                     fs.unlink("./tmp/outFile.mp3", (err) => {
                                         if(err) {console.log("Error in deleting tts audio file: " + err);}
@@ -683,20 +707,20 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         let ogMsg = msg.message.extendedTextMessage.contextInfo.quotedMessage.conversation;
                         fs.writeFile("./txt/temp/camp.txt", ogMsg, () => {
                             console.log("File updated.");
-                            conn.sendMessage(msg.key.remoteJid, {text:"Updated file!"}, {quoted:msg}).catch(msgSendError);
+                            conn.sendMessage(msg.key.remoteJid, "Updated file!", MessageType.text, {quoted:msg}).catch(msgSendError);
                         });
                         break;
                         
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, {text:"*BEWAbot:* Tag a text message!"}).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Tag a text message!", MessageType.text).then((response) => console.log("Message rejected: Non-text message tagged")).catch(msgSendError);
                     }
                     break;
                 
                 case "helloBEWAbot":
                     console.log("Received greeting from fellow bot");
                     setTimeout(() => {
-                        conn.sendMessage(msg.key.remoteJid, {text:"#helloTKM-Bot"}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, "#helloTKM-Bot", MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Greeted fellow bot");
                         }).catch(msgSendError);
                     }, 500);
@@ -705,16 +729,15 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 case "adminify":
                     console.log("Received request for adminification");
                     if(msg.message.extendedTextMessage.contextInfo.mentionedJid.length > 0) {
-                        conn.groupParticipantsUpdate(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid, "promote").then((response) => {
-                        // conn.groupMakeAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
+                        conn.groupMakeAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
                             console.log("Made people admins.");
-                            conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* Made the tagged people admins!"}, {quoted:msg}).then((response) => {
+                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Made the tagged people admins!", MessageType.text, {quoted:msg}).then((response) => {
                                 console.log("Sent confirmation");
                             }).catch(msgSendError);
                         }).catch(msgSendError);
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* _Zor se bolo!_\nSay it louder!"}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* _Zor se bolo!_\nSay it louder!", MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Asked requester to use secondary command for adminification");
                         }).catch(msgSendError);
                     }
@@ -722,10 +745,9 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 
                 case "adminify!": 
                     console.log("Received proper request for adminification");
-                    conn.groupParticipantsUpdate(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant], "promote").then((response) => {
-                    // conn.groupMakeAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
+                    conn.groupMakeAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
                         console.log("Made person an admin.");
-                        conn.sendMessage(msg.key.remoteJid, { text: `*BEWAbot:* Made ${msg.message.extendedTextMessage.contextInfo.participant} an admin!`}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, `*BEWAbot:* Made ${msg.message.extendedTextMessage.contextInfo.participant} an admin!`, MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Sent confirmation");
                         }).catch(msgSendError);
                     }).catch(msgSendError);
@@ -734,16 +756,15 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 case "unadminify":
                     console.log("Received request for removing adminification");
                     if(msg.message.extendedTextMessage.contextInfo.mentionedJid.length > 0) {
-                        conn.groupParticipantsUpdate(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid, "demote").then((response) => {
-                        // conn.groupDemoteAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
+                        conn.groupDemoteAdmin(msg.key.remoteJid, msg.message.extendedTextMessage.contextInfo.mentionedJid).then((response) => {
                             console.log("Removed people from admin.");
-                            conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* Removed the tagged people from admins!"}, {quoted:msg}).then((response) => {
+                            conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* Removed the tagged people from admins!", MessageType.text, {quoted:msg}).then((response) => {
                                 console.log("Sent confirmation");
                             }).catch(msgSendError);
                         }).catch(msgSendError);
                     }
                     else {
-                        conn.sendMessage(msg.key.remoteJid, { text: "*BEWAbot:* _Zor se bolo!_\nSay it louder!"}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, "*BEWAbot:* _Zor se bolo!_\nSay it louder!", MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Asked requester to use secondary command for removing adminification");
                         }).catch(msgSendError);
                     }
@@ -752,10 +773,9 @@ async function checkMessageForCommand(conn, msg, msgType) {
                 case "unadminify!": 
                     console.log("Received proper request for removing adminification");
                     // console.log(msg.message.extendedTextMessage.contextInfo.participant);
-                    conn.groupParticipantsUpdate(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant], "demote").then((response) => {
-                    // conn.groupDemoteAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
+                    conn.groupDemoteAdmin(msg.key.remoteJid, [msg.message.extendedTextMessage.contextInfo.participant]).then((response) => {
                         console.log("Removed person from admin.");
-                        conn.sendMessage(msg.key.remoteJid, { text: `*BEWAbot:* Removed ${msg.message.extendedTextMessage.contextInfo.participant} from admins list!`}, {quoted:msg}).then((response) => {
+                        conn.sendMessage(msg.key.remoteJid, `*BEWAbot:* Removed ${msg.message.extendedTextMessage.contextInfo.participant} from admins list!`, MessageType.text, {quoted:msg}).then((response) => {
                             console.log("Sent confirmation");
                         }).catch(msgSendError);
                     }).catch(msgSendError);
@@ -766,13 +786,11 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     console.log(timeOut);
                     let membersKick = msg.message.extendedTextMessage.contextInfo.mentionedJid;
                     console.log(membersKick);
-                    conn.groupParticipantsUpdate(msg.key.remoteJid, membersKick, "remove").then((modi) => {
-                    // conn.groupRemove(msg.key.remoteJid, membersKick).then((modi) => {
+                    conn.groupRemove(msg.key.remoteJid, membersKick).then((modi) => {
                         console.log("Removed person.");
                         console.log("Data received: " + modi);
                         setTimeout(() => {
-                            conn.groupParticipantsUpdate(msg.key.remoteJid, membersKick, "add").then((modi) => {
-                            // conn.groupAdd(msg.key.remoteJid, membersKick).then((modi) => {
+                            conn.groupAdd(msg.key.remoteJid, membersKick).then((modi) => {
                                 console.log("Added people back.");
                                 console.log("Data received: " + modi);
                             }).catch((err) => {
@@ -782,7 +800,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     }).catch((err) => {
                         console.log("ERROR in removing member: " + err);
                     });  
-                    break;
+
 
             }
         }
