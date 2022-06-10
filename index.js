@@ -153,7 +153,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     });
                     break;
 
-                case "helpxkg":
+                case "helpx":
                     fs.readFile("./txt/xhelp.txt", (err, data) => {
                         if(err) {console.log("error in opening file: " + err);}
                         else {
@@ -782,6 +782,7 @@ async function checkMessageForCommand(conn, msg, msgType) {
                     }).catch((err) => {
                         console.log("ERROR in removing member: " + err);
                     });  
+                    break;
 
             }
         }

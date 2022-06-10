@@ -13,3 +13,4 @@ _Commands:_
 *- !adminify!:* Alternate version of the above command, except that a message must be tagged (using the 'reply' option). Makes the person who has sent the tagged message, an admin.
 *- !unadminify:* Same as _!adminify_ but for removing the tagged people from the list of admins of the group
 *- !unadminify!:* Same as _!adminify!_ but for removing the person whose message is tagged, from the list of admins of the group
+*- !timeout:* Sets a timeout for the tagged members, that is, removes the members tagged for the specified amount of minutes. Enter the command by itself for more details.
