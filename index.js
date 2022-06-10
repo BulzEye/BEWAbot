@@ -363,6 +363,13 @@ async function checkMessageForCommand(conn, msg, msgType) {
                         }).catch(msgSendError);
                     });
                     break;
+
+                case "timeout":
+                    console.log("Received timeout help");
+                    conn.sendMessage(msg.key.remoteJid, { text: "*Format:* _!timeout <no. of minutes the timeout should last> <tags of members to kick>_"}, {quoted:msg}).then((response) => {
+                        console.log("Sent help list");
+                    }).catch(msgSendError);
+                    break;
             }
         }
 
